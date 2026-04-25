@@ -1,0 +1,104 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    color: #1f2d3d;
+}
+
+.container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 16px;
+}
+
+h1 {
+    text-align: center;
+    color: #1f3b4d;
+    margin-bottom: 20px;
+}
+
+h2 {
+    margin-top: 0;
+    color: #1f3b4d;
+    font-size: 20px;
+}
+
+.card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+label {
+    display: block;
+    margin-top: 10px;
+    margin-bottom: 6px;
+    font-weight: bold;
+}
+
+input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #ccd3da;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+button {
+    margin-top: 16px;
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    background: #2e8b57;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button.secondary {
+    background: #1f77b4;
+}
+
+.alert {
+    background: #eef6ff;
+    color: #174a7a;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.status-box {
+    background: #f8fafc;
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 12px;
+}
+
+.comparativo {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    background: #fff8e6;
+    color: #7a5a00;
+}
+
+.history {
+    margin-top: 16px;
+}
+
+.history-item {
+    border: 1px solid #e3e8ee;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: #fafbfd;
+}
+
+.history-item p {
+    margin: 4px 0;
+}
