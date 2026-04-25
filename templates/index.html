@@ -1,1 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Produção de Ovos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Controle de Produção de Ovos</h1>
 
+        {% if mensagem %}
+            <div class="alert">{{ mensagem }}</div>
+        {% endif %}
+
+        <div class="card">
+            <h2>Lançamento Diário</h2>
+
+            <form method="POST">
+                <input type="hidden" name="acao" value="salvar">
+
+                <label>Lote</label>
+                <input type="text" name="lote" required>
+
+                <label>Aves</label>
+                <input type="number" name="aves" required>
+
+                <label>Ovos</label>
+                <input type="number" name="ovos" required>
+
+                <label>Mortes</label>
+                <input type="number" name="mortes" required>
+
+                <label>Ração (kg)</label>
+                <input type="number" step="0.01" name="racao" required>
+
+                <button type="submit">Calcular e Salvar</button>
+            </form>
+        </div>
+
+        {% if resultado %}
+        <div class="card">
+            <h2>Resultado</h2>
+            <p><strong>Lote:</strong> {{ resultado.lote }}</p>
+            <p><strong>Aves:</strong> {{ resultado.aves }}</p>
+            <p><strong>Ovos:</strong> {{ resultado.ovos }}</p>
+            <p><strong>Postura:</strong> {{ resultado.postura }}%</p>
+            <p><strong>Mortalidade:</strong> {{ resultado.mortalidade }}%</p>
+            <p><strong>Consumo por ave:</strong> {{ resultado.consumo }} g</p>
+
+            <div class="status-box">
+                <strong>Status:</strong>
+                <ul>
+                    {% for item in resultado.status %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            {% if resultado.comparativo %}
+                <div class="comparativo">{{ resultado.comparativo }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="card">
+            <h2>Consultar Histórico por Lote</h2>
+
+            <form method="POST">
+                <input type="hidden" name="acao" value="consultar">
+
+                <label>Lote</label>
+                <input type="text" name="lote_consulta" value="{{ lote_consulta }}" required>
+
+                <button type="submit" class="secondary">Consultar</button>
+            </form>
+
+            {% if historico %}
+                <div class="history">
+                    {% for item in historico %}
+                        <div class="history-item">
+                            <p><strong>Data:</strong> {{ item[0] }}</p>
+                            <p><strong>Lote:</strong> {{ item[1] }}</p>
+                            <p><strong>Aves:</strong> {{ item[2] }}</p>
+                            <p><strong>Ovos:</strong> {{ item[3] }}</p>
+                            <p><strong>Mortes:</strong> {{ item[4] }}</p>
+                            <p><strong>Ração:</strong> {{ item[5] }} kg</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
