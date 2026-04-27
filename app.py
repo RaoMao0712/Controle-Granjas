@@ -121,6 +121,7 @@ def montar_resultado(dados):
     media_anterior = buscar_media_postura_anterior(dados["lote"])
 
     status = []
+
     if indicadores["postura"] < 80:
         status.append("Baixa postura")
     else:
@@ -130,6 +131,7 @@ def montar_resultado(dados):
         status.append("Consumo elevado")
 
     comparativo = None
+
     if media_anterior is not None:
         diferenca = round(indicadores["postura"] - media_anterior, 1)
 
@@ -181,11 +183,17 @@ def index():
 
                 mensagem = "Lançamento salvo com sucesso."
 
+                # Melhoria de usabilidade:
+                # Após salvar, já mostra automaticamente o histórico do mesmo lote.
+                historico = buscar_historico_por_lote(dados["lote"])
+                lote_consulta = dados["lote"]
+
             except Exception as e:
                 mensagem = f"Erro ao salvar: {e}"
 
         elif acao == "consultar":
             lote_consulta = request.form["lote_consulta"].strip().upper()
+
             if lote_consulta:
                 historico = buscar_historico_por_lote(lote_consulta)
             else:
