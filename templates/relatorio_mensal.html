@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block conteudo %}
+<div class="card">
+    <h2>Relatório mensal</h2>
+
+    <form method="POST">
+        <label>Mês de referência</label>
+        <input type="month" name="ano_mes" value="{{ ano_mes }}" required>
+
+        <button type="submit">Gerar relatório</button>
+    </form>
+</div>
+
+{% if consolidado %}
+<div class="card resultado">
+    <h2>Consolidado da granja</h2>
+
+    <p><strong>Aves no início do mês:</strong> {{ consolidado.aves_inicio }}</p>
+    <p><strong>Aves no final do mês:</strong> {{ consolidado.aves_final }}</p>
+    <p><strong>Mortalidade total:</strong> {{ consolidado.mortes }}</p>
+    <p><strong>Ovos produzidos:</strong> {{ consolidado.ovos }}</p>
+    <p><strong>Produtividade média:</strong> {{ consolidado.produtividade }}%</p>
+    <p><strong>Consumo total de ração:</strong> {{ consolidado.racao }} kg</p>
+</div>
+
+<div class="card">
+    <h2>Detalhamento por lote</h2>
+
+    {% for item in relatorio_lotes %}
+    <div class="history-item">
+        <p><strong>Lote:</strong> {{ item.lote }}</p>
+        <p><strong>Aves no início:</strong> {{ item.aves_inicio }}</p>
+        <p><strong>Aves no final:</strong> {{ item.aves_final }}</p>
+        <p><strong>Mortalidade:</strong> {{ item.mortes }}</p>
+        <p><strong>Ovos produzidos:</strong> {{ item.ovos }}</p>
+        <p><strong>Produtividade:</strong> {{ item.produtividade }}%</p>
+        <p><strong>Ração consumida:</strong> {{ item.racao }} kg</p>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GranjaPro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="overlay">
+        <header class="topo">
+            <div>
+                <h1>Granja<span>Pro</span></h1>
+                <p>Controle profissional de produção de ovos</p>
+            </div>
+
+            {% if session.get("usuario_id") %}
+            <nav>
+                <a href="{{ url_for('dashboard') }}">Lançamentos</a>
+                <a href="{{ url_for('relatorio') }}">Relatório</a>
+                <a href="{{ url_for('sair') }}">Sair</a>
+            </nav>
+            {% endif %}
+        </header>
+
+        <main class="container">
+            {% with mensagens = get_flashed_messages() %}
+                {% if mensagens %}
+                    {% for msg in mensagens %}
+                        <div class="alert">{{ msg }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block conteudo %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

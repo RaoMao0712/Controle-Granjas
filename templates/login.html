@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block conteudo %}
+<div class="card login-card">
+    <h2>Acessar minha granja</h2>
+
+    <form method="POST">
+        <label>E-mail</label>
+        <input type="email" name="email" required>
+
+        <label>Senha</label>
+        <input type="password" name="senha" required>
+
+        <button type="submit">Entrar</button>
+    </form>
+
+    <div class="plano">
+        Plano mensal: <strong>R$ 39,90</strong>
+    </div>
+
+    <p class="obs">
+        Primeiro acesso:<br>
+        <strong>admin@app.com</strong> / <strong>admin123</strong>
+    </p>
+</div>
+{% endblock %}
