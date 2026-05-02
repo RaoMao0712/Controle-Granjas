@@ -1,0 +1,246 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    color: #1f2d3d;
+
+    background:
+        linear-gradient(rgba(255,255,255,0.78), rgba(255,255,255,0.92)),
+        url("/static/imagens/ovos.png");
+
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+.overlay {
+    min-height: 100vh;
+}
+
+.topo {
+    background: rgba(31, 59, 77, 0.96);
+    color: white;
+    padding: 18px;
+    text-align: center;
+    border-bottom: 4px solid #ff6600;
+}
+
+.topo h1 {
+    margin: 0;
+    font-size: 30px;
+    letter-spacing: -1px;
+}
+
+.topo h1 span {
+    color: #ff6600;
+}
+
+.topo p {
+    margin: 6px 0 0 0;
+    font-size: 14px;
+    color: #fff4e8;
+}
+
+nav {
+    margin-top: 14px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    background: #ff6600;
+    padding: 9px 13px;
+    border-radius: 9px;
+    font-weight: bold;
+}
+
+nav a:hover {
+    background: #e85b00;
+}
+
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 16px;
+}
+
+.grid-dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    align-items: start;
+}
+
+.coluna {
+    width: 100%;
+}
+
+.card {
+    background: rgba(255,255,255,0.96);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.14);
+    border: 1px solid rgba(255, 102, 0, 0.12);
+}
+
+.card-consulta {
+    min-height: 520px;
+}
+
+.login-card {
+    max-width: 430px;
+    margin: 40px auto 0 auto;
+}
+
+h2 {
+    margin-top: 0;
+    color: #1f3b4d;
+    border-left: 5px solid #ff6600;
+    padding-left: 10px;
+}
+
+h3 {
+    margin-bottom: 10px;
+    color: #1f3b4d;
+}
+
+label {
+    display: block;
+    margin-top: 10px;
+    margin-bottom: 6px;
+    font-weight: bold;
+}
+
+input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #ccd3da;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+input:focus {
+    outline: none;
+    border-color: #ff6600;
+    box-shadow: 0 0 0 2px rgba(255, 102, 0, 0.15);
+}
+
+button {
+    margin-top: 14px;
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    background: #ff6600;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #e85b00;
+}
+
+button.secondary {
+    background: #ff8c2a;
+}
+
+button.secondary:hover {
+    background: #f07611;
+}
+
+.alert {
+    background: #fff4e8;
+    color: #8a3f00;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-weight: bold;
+    border-left: 5px solid #ff6600;
+}
+
+.resultado {
+    border-left: 5px solid #ff6600;
+}
+
+.comparativo {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    background: #fff8e6;
+    color: #7a5a00;
+    font-weight: bold;
+}
+
+.history {
+    margin-top: 12px;
+}
+
+.history-item {
+    border: 1px solid #f1d0b5;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: #fffaf5;
+}
+
+.history-item p {
+    margin: 3px 0;
+}
+
+.caixa-vazia {
+    margin-top: 18px;
+    padding: 14px;
+    border-radius: 10px;
+    background: #fffaf5;
+    color: #8a5a2b;
+    text-align: center;
+    border: 1px dashed #ff8c2a;
+}
+
+.plano {
+    margin-top: 16px;
+    background: #fff4e8;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 18px;
+    color: #8a3f00;
+    border: 1px solid #ffb06b;
+}
+
+.obs {
+    font-size: 13px;
+    color: #555;
+    text-align: center;
+}
+
+/* Celular */
+@media (max-width: 800px) {
+    .container {
+        max-width: 760px;
+        padding: 12px;
+    }
+
+    .grid-dashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .card-consulta {
+        min-height: auto;
+    }
+
+    .topo h1 {
+        font-size: 24px;
+    }
+
+    nav a {
+        font-size: 14px;
+    }
+}
