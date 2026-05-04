@@ -44,7 +44,7 @@
             <p><strong>Entradas:</strong> {{ resultado.entradas }}</p>
             <p><strong>Mortes:</strong> {{ resultado.mortes }}</p>
             <p><strong>Saídas / ajustes:</strong> {{ resultado.saidas }}</p>
-            <p><strong>Aves estimadas no final:</strong> {{ resultado.aves_final }}</p>
+            <p><strong>Aves no final:</strong> {{ resultado.aves_final }}</p>
             <p><strong>Ovos:</strong> {{ resultado.ovos }}</p>
             <p><strong>Postura:</strong> {{ resultado.postura }}%</p>
             <p><strong>Mortalidade:</strong> {{ resultado.mortalidade }}%</p>
@@ -82,6 +82,7 @@
                     <p><strong>Entradas:</strong> {{ item.entradas }}</p>
                     <p><strong>Mortes:</strong> {{ item.mortes }}</p>
                     <p><strong>Saídas / ajustes:</strong> {{ item.saidas }}</p>
+                    <p><strong>Aves no final:</strong> {{ item.aves + item.entradas - item.mortes - item.saidas }}</p>
                     <p><strong>Ovos:</strong> {{ item.ovos }}</p>
                     <p><strong>Ração:</strong> {{ item.racao }} kg</p>
                 </div>
@@ -94,7 +95,7 @@
             {% endif %}
         </div>
     </div>
+    
 
 </div>
 {% endblock %}
-
