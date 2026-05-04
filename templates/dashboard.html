@@ -13,10 +13,16 @@
                 <label>Lote</label>
                 <input type="text" name="lote" required>
 
-                <label>Aves</label>
+                <label>Aves no início do dia</label>
                 <input type="number" name="aves" required>
 
-                <label>Ovos</label>
+                <label>Entradas de aves</label>
+                <input type="number" name="entradas" value="0" min="0">
+
+                <label>Saídas / ajustes</label>
+                <input type="number" name="saidas" value="0" min="0">
+
+                <label>Ovos produzidos</label>
                 <input type="number" name="ovos" required>
 
                 <label>Mortes</label>
@@ -34,7 +40,11 @@
             <h2>Resultado do dia</h2>
 
             <p><strong>Lote:</strong> {{ resultado.lote }}</p>
-            <p><strong>Aves:</strong> {{ resultado.aves }}</p>
+            <p><strong>Aves no início:</strong> {{ resultado.aves }}</p>
+            <p><strong>Entradas:</strong> {{ resultado.entradas }}</p>
+            <p><strong>Mortes:</strong> {{ resultado.mortes }}</p>
+            <p><strong>Saídas / ajustes:</strong> {{ resultado.saidas }}</p>
+            <p><strong>Aves estimadas no final:</strong> {{ resultado.aves_final }}</p>
             <p><strong>Ovos:</strong> {{ resultado.ovos }}</p>
             <p><strong>Postura:</strong> {{ resultado.postura }}%</p>
             <p><strong>Mortalidade:</strong> {{ resultado.mortalidade }}%</p>
@@ -68,9 +78,11 @@
                 <div class="history-item">
                     <p><strong>Data:</strong> {{ item.data }}</p>
                     <p><strong>Lote:</strong> {{ item.lote }}</p>
-                    <p><strong>Aves:</strong> {{ item.aves }}</p>
-                    <p><strong>Ovos:</strong> {{ item.ovos }}</p>
+                    <p><strong>Aves início:</strong> {{ item.aves }}</p>
+                    <p><strong>Entradas:</strong> {{ item.entradas }}</p>
                     <p><strong>Mortes:</strong> {{ item.mortes }}</p>
+                    <p><strong>Saídas / ajustes:</strong> {{ item.saidas }}</p>
+                    <p><strong>Ovos:</strong> {{ item.ovos }}</p>
                     <p><strong>Ração:</strong> {{ item.racao }} kg</p>
                 </div>
                 {% endfor %}
@@ -85,3 +97,4 @@
 
 </div>
 {% endblock %}
+
