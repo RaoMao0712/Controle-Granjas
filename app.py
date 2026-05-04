@@ -40,6 +40,8 @@ def criar_banco():
         data TEXT NOT NULL,
         lote TEXT NOT NULL,
         aves INTEGER NOT NULL,
+        entradas INTEGER NOT NULL DEFAULT 0,
+        saidas INTEGER NOT NULL DEFAULT 0,
         ovos INTEGER NOT NULL,
         mortes INTEGER NOT NULL,
         racao REAL NOT NULL,
@@ -157,36 +159,50 @@ def gerar_relatorio_mensal(usuario_id, ano_mes):
                 "lote": lote,
                 "aves_inicio": item["aves"],
                 "aves_final": item["aves"],
+                "entradas": 0,
+                "saidas": 0,
                 "ovos": 0,
                 "mortes": 0,
                 "racao": 0,
+                "soma_aves_dia": 0,
                 "dias": 0
             }
 
-        lotes[lote]["aves_final"] = item["aves"]
+        aves_final_dia = item["aves"] + item["entradas"] - item["mortes"] - item["saidas"]
+
+        lotes[lote]["aves_final"] = aves_final_dia
+        lotes[lote]["entradas"] += item["entradas"]
+        lotes[lote]["saidas"] += item["saidas"]
         lotes[lote]["ovos"] += item["ovos"]
         lotes[lote]["mortes"] += item["mortes"]
         lotes[lote]["racao"] += item["racao"]
+        lotes[lote]["soma_aves_dia"] += item["aves"]
         lotes[lote]["dias"] += 1
 
     relatorio_lotes = []
 
     total_aves_inicio = 0
     total_aves_final = 0
+    total_entradas = 0
+    total_saidas = 0
     total_ovos = 0
     total_mortes = 0
     total_racao = 0
-    total_dias_lote = 0
+    total_soma_aves_dia = 0
 
     for _, dados in lotes.items():
-        aves_media = (dados["aves_inicio"] + dados["aves_final"]) / 2 if dados["aves_inicio"] else 0
-        produtividade = (dados["ovos"] / (aves_media * dados["dias"]) * 100) if aves_media and dados["dias"] else 0
+        produtividade = (
+            dados["ovos"] / dados["soma_aves_dia"] * 100
+            if dados["soma_aves_dia"] else 0
+        )
 
         linha = {
             "lote": dados["lote"],
             "aves_inicio": dados["aves_inicio"],
-            "aves_final": dados["aves_final"],
+            "entradas": dados["entradas"],
             "mortes": dados["mortes"],
+            "saidas": dados["saidas"],
+            "aves_final": dados["aves_final"],
             "ovos": dados["ovos"],
             "produtividade": round(produtividade, 1),
             "racao": round(dados["racao"], 2)
@@ -196,18 +212,24 @@ def gerar_relatorio_mensal(usuario_id, ano_mes):
 
         total_aves_inicio += dados["aves_inicio"]
         total_aves_final += dados["aves_final"]
+        total_entradas += dados["entradas"]
+        total_saidas += dados["saidas"]
         total_ovos += dados["ovos"]
         total_mortes += dados["mortes"]
         total_racao += dados["racao"]
-        total_dias_lote += dados["dias"]
+        total_soma_aves_dia += dados["soma_aves_dia"]
 
-    aves_media_total = (total_aves_inicio + total_aves_final) / 2 if total_aves_inicio else 0
-    produtividade_total = (total_ovos / (aves_media_total * total_dias_lote) * 100) if aves_media_total and total_dias_lote else 0
+    produtividade_total = (
+        total_ovos / total_soma_aves_dia * 100
+        if total_soma_aves_dia else 0
+    )
 
     consolidado = {
         "aves_inicio": total_aves_inicio,
-        "aves_final": total_aves_final,
+        "entradas": total_entradas,
         "mortes": total_mortes,
+        "saidas": total_saidas,
+        "aves_final": total_aves_final,
         "ovos": total_ovos,
         "produtividade": round(produtividade_total, 1),
         "racao": round(total_racao, 2)
@@ -260,9 +282,13 @@ def dashboard():
         if acao == "salvar":
             lote = request.form["lote"].strip().upper()
             aves = int(request.form["aves"])
+            entradas = int(request.form.get("entradas") or 0)
+            saidas = int(request.form.get("saidas") or 0)
             ovos = int(request.form["ovos"])
             mortes = int(request.form["mortes"])
             racao = float(request.form["racao"])
+
+            aves_final = aves + entradas - mortes - saidas
 
             indicadores = calcular_indicadores(aves, ovos, mortes, racao)
             media_anterior = buscar_media_postura_anterior(session["usuario_id"], lote)
@@ -282,13 +308,17 @@ def dashboard():
             cursor = conn.cursor()
 
             cursor.execute("""
-            INSERT INTO lancamentos (usuario_id, data, lote, aves, ovos, mortes, racao)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO lancamentos (
+                usuario_id, data, lote, aves, entradas, saidas, ovos, mortes, racao
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 session["usuario_id"],
                 datetime.now().strftime("%Y-%m-%d"),
                 lote,
                 aves,
+                entradas,
+                saidas,
                 ovos,
                 mortes,
                 racao
@@ -300,6 +330,10 @@ def dashboard():
             resultado = {
                 "lote": lote,
                 "aves": aves,
+                "entradas": entradas,
+                "saidas": saidas,
+                "mortes": mortes,
+                "aves_final": aves_final,
                 "ovos": ovos,
                 "postura": indicadores["postura"],
                 "mortalidade": indicadores["mortalidade"],
@@ -346,4 +380,5 @@ if __name__ == "__main__":
     criar_banco()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+    
     
