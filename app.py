@@ -40,14 +40,22 @@ def criar_banco():
         data TEXT NOT NULL,
         lote TEXT NOT NULL,
         aves INTEGER NOT NULL,
-        entradas INTEGER NOT NULL DEFAULT 0,
-        saidas INTEGER NOT NULL DEFAULT 0,
         ovos INTEGER NOT NULL,
         mortes INTEGER NOT NULL,
         racao REAL NOT NULL,
         FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
     )
     """)
+
+    # Atualiza bancos antigos sem apagar dados
+    cursor.execute("PRAGMA table_info(lancamentos)")
+    colunas = [coluna[1] for coluna in cursor.fetchall()]
+
+    if "entradas" not in colunas:
+        cursor.execute("ALTER TABLE lancamentos ADD COLUMN entradas INTEGER NOT NULL DEFAULT 0")
+
+    if "saidas" not in colunas:
+        cursor.execute("ALTER TABLE lancamentos ADD COLUMN saidas INTEGER NOT NULL DEFAULT 0")
 
     cursor.execute("SELECT COUNT(*) AS total FROM usuarios")
     total = cursor.fetchone()["total"]
@@ -168,11 +176,14 @@ def gerar_relatorio_mensal(usuario_id, ano_mes):
                 "dias": 0
             }
 
-        aves_final_dia = item["aves"] + item["entradas"] - item["mortes"] - item["saidas"]
+        entradas = item["entradas"] if "entradas" in item.keys() else 0
+        saidas = item["saidas"] if "saidas" in item.keys() else 0
+
+        aves_final_dia = item["aves"] + entradas - item["mortes"] - saidas
 
         lotes[lote]["aves_final"] = aves_final_dia
-        lotes[lote]["entradas"] += item["entradas"]
-        lotes[lote]["saidas"] += item["saidas"]
+        lotes[lote]["entradas"] += entradas
+        lotes[lote]["saidas"] += saidas
         lotes[lote]["ovos"] += item["ovos"]
         lotes[lote]["mortes"] += item["mortes"]
         lotes[lote]["racao"] += item["racao"]
@@ -272,6 +283,8 @@ def sair():
 @app.route("/dashboard", methods=["GET", "POST"])
 @login_obrigatorio
 def dashboard():
+    criar_banco()
+
     resultado = None
     historico = []
     lote_consulta = ""
@@ -360,6 +373,8 @@ def dashboard():
 @app.route("/relatorio", methods=["GET", "POST"])
 @login_obrigatorio
 def relatorio():
+    criar_banco()
+
     ano_mes = datetime.now().strftime("%Y-%m")
     relatorio_lotes = []
     consolidado = None
