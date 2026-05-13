@@ -1,7 +1,9 @@
 import os
-import sqlite3
 from datetime import datetime
 from functools import wraps
+
+import psycopg2
+import psycopg2.extras
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -9,53 +11,43 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = "troque-essa-chave-depois"
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "granja.db")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
 def conectar():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(DATABASE_URL)
     return conn
 
 
 def criar_banco():
     conn = conectar()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS usuarios (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
+        id SERIAL PRIMARY KEY,
+        nome VARCHAR(100) NOT NULL,
+        email VARCHAR(150) UNIQUE NOT NULL,
         senha_hash TEXT NOT NULL,
-        tipo TEXT NOT NULL DEFAULT 'cliente'
+        tipo VARCHAR(20) NOT NULL DEFAULT 'cliente'
     )
     """)
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS lancamentos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         usuario_id INTEGER NOT NULL,
-        data TEXT NOT NULL,
-        lote TEXT NOT NULL,
+        data DATE NOT NULL,
+        lote VARCHAR(50) NOT NULL,
         aves INTEGER NOT NULL,
+        entradas INTEGER NOT NULL DEFAULT 0,
+        saidas INTEGER NOT NULL DEFAULT 0,
         ovos INTEGER NOT NULL,
         mortes INTEGER NOT NULL,
-        racao REAL NOT NULL,
-        FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
+        racao NUMERIC(10,2) NOT NULL,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
     )
     """)
-
-    # Atualiza bancos antigos sem apagar dados
-    cursor.execute("PRAGMA table_info(lancamentos)")
-    colunas = [coluna[1] for coluna in cursor.fetchall()]
-
-    if "entradas" not in colunas:
-        cursor.execute("ALTER TABLE lancamentos ADD COLUMN entradas INTEGER NOT NULL DEFAULT 0")
-
-    if "saidas" not in colunas:
-        cursor.execute("ALTER TABLE lancamentos ADD COLUMN saidas INTEGER NOT NULL DEFAULT 0")
 
     cursor.execute("SELECT COUNT(*) AS total FROM usuarios")
     total = cursor.fetchone()["total"]
@@ -63,7 +55,7 @@ def criar_banco():
     if total == 0:
         cursor.execute("""
         INSERT INTO usuarios (nome, email, senha_hash, tipo)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
         """, (
             "Administrador",
             "admin@app.com",
@@ -98,12 +90,12 @@ def calcular_indicadores(aves, ovos, mortes, racao):
 
 def buscar_media_postura_anterior(usuario_id, lote):
     conn = conectar()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     cursor.execute("""
     SELECT aves, ovos
     FROM lancamentos
-    WHERE usuario_id = ? AND lote = ?
+    WHERE usuario_id = %s AND lote = %s
     ORDER BY id DESC
     LIMIT 3
     """, (usuario_id, lote.upper()))
@@ -115,6 +107,7 @@ def buscar_media_postura_anterior(usuario_id, lote):
         return None
 
     posturas = []
+
     for item in registros:
         if item["aves"] > 0:
             posturas.append((item["ovos"] / item["aves"]) * 100)
@@ -127,30 +120,31 @@ def buscar_media_postura_anterior(usuario_id, lote):
 
 def buscar_historico_por_lote(usuario_id, lote):
     conn = conectar()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     cursor.execute("""
     SELECT *
     FROM lancamentos
-    WHERE usuario_id = ? AND lote = ?
+    WHERE usuario_id = %s AND lote = %s
     ORDER BY id DESC
     LIMIT 10
     """, (usuario_id, lote.upper()))
 
     registros = cursor.fetchall()
     conn.close()
+
     return registros
 
 
 def gerar_relatorio_mensal(usuario_id, ano_mes):
     conn = conectar()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     cursor.execute("""
     SELECT *
     FROM lancamentos
-    WHERE usuario_id = ?
-      AND substr(data, 1, 7) = ?
+    WHERE usuario_id = %s
+      AND TO_CHAR(data, 'YYYY-MM') = %s
     ORDER BY lote, data ASC, id ASC
     """, (usuario_id, ano_mes))
 
@@ -172,23 +166,23 @@ def gerar_relatorio_mensal(usuario_id, ano_mes):
                 "ovos": 0,
                 "mortes": 0,
                 "racao": 0,
-                "soma_aves_dia": 0,
-                "dias": 0
+                "soma_aves_dia": 0
             }
 
-        entradas = item["entradas"] if "entradas" in item.keys() else 0
-        saidas = item["saidas"] if "saidas" in item.keys() else 0
-
-        aves_final_dia = item["aves"] + entradas - item["mortes"] - saidas
+        aves_final_dia = (
+            item["aves"]
+            + item["entradas"]
+            - item["mortes"]
+            - item["saidas"]
+        )
 
         lotes[lote]["aves_final"] = aves_final_dia
-        lotes[lote]["entradas"] += entradas
-        lotes[lote]["saidas"] += saidas
+        lotes[lote]["entradas"] += item["entradas"]
+        lotes[lote]["saidas"] += item["saidas"]
         lotes[lote]["ovos"] += item["ovos"]
         lotes[lote]["mortes"] += item["mortes"]
-        lotes[lote]["racao"] += item["racao"]
+        lotes[lote]["racao"] += float(item["racao"])
         lotes[lote]["soma_aves_dia"] += item["aves"]
-        lotes[lote]["dias"] += 1
 
     relatorio_lotes = []
 
@@ -202,6 +196,7 @@ def gerar_relatorio_mensal(usuario_id, ano_mes):
     total_soma_aves_dia = 0
 
     for _, dados in lotes.items():
+
         produtividade = (
             dados["ovos"] / dados["soma_aves_dia"] * 100
             if dados["soma_aves_dia"] else 0
@@ -251,22 +246,32 @@ def gerar_relatorio_mensal(usuario_id, ano_mes):
 
 @app.route("/", methods=["GET", "POST"])
 def login():
+
     criar_banco()
 
     if request.method == "POST":
+
         email = request.form["email"].strip().lower()
         senha = request.form["senha"].strip()
 
         conn = conectar()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM usuarios WHERE email = ?", (email,))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cursor.execute(
+            "SELECT * FROM usuarios WHERE email = %s",
+            (email,)
+        )
+
         usuario = cursor.fetchone()
+
         conn.close()
 
         if usuario and check_password_hash(usuario["senha_hash"], senha):
+
             session["usuario_id"] = usuario["id"]
             session["nome"] = usuario["nome"]
             session["tipo"] = usuario["tipo"]
+
             return redirect(url_for("dashboard"))
 
         flash("E-mail ou senha inválidos.")
@@ -283,51 +288,92 @@ def sair():
 @app.route("/dashboard", methods=["GET", "POST"])
 @login_obrigatorio
 def dashboard():
-    criar_banco()
 
     resultado = None
     historico = []
     lote_consulta = ""
 
     if request.method == "POST":
+
         acao = request.form.get("acao")
 
         if acao == "salvar":
+
             lote = request.form["lote"].strip().upper()
+
             aves = int(request.form["aves"])
             entradas = int(request.form.get("entradas") or 0)
             saidas = int(request.form.get("saidas") or 0)
+
             ovos = int(request.form["ovos"])
             mortes = int(request.form["mortes"])
+
             racao = float(request.form["racao"])
 
             aves_final = aves + entradas - mortes - saidas
 
-            indicadores = calcular_indicadores(aves, ovos, mortes, racao)
-            media_anterior = buscar_media_postura_anterior(session["usuario_id"], lote)
+            indicadores = calcular_indicadores(
+                aves,
+                ovos,
+                mortes,
+                racao
+            )
+
+            media_anterior = buscar_media_postura_anterior(
+                session["usuario_id"],
+                lote
+            )
 
             comparativo = None
+
             if media_anterior is not None:
-                diferenca = round(indicadores["postura"] - media_anterior, 1)
+
+                diferenca = round(
+                    indicadores["postura"] - media_anterior,
+                    1
+                )
 
                 if diferenca <= -3:
-                    comparativo = f"Queda de {abs(diferenca)} pontos na postura em relação à média anterior ({media_anterior}%)."
+                    comparativo = (
+                        f"Queda de {abs(diferenca)} pontos "
+                        f"na postura em relação à média anterior "
+                        f"({media_anterior}%)."
+                    )
+
                 elif diferenca >= 3:
-                    comparativo = f"Alta de {diferenca} pontos na postura em relação à média anterior ({media_anterior}%)."
+                    comparativo = (
+                        f"Alta de {diferenca} pontos "
+                        f"na postura em relação à média anterior "
+                        f"({media_anterior}%)."
+                    )
+
                 else:
-                    comparativo = f"Variação pequena de {diferenca} ponto(s) em relação à média anterior ({media_anterior}%)."
+                    comparativo = (
+                        f"Variação pequena de {diferenca} ponto(s) "
+                        f"em relação à média anterior "
+                        f"({media_anterior}%)."
+                    )
 
             conn = conectar()
+
             cursor = conn.cursor()
 
             cursor.execute("""
             INSERT INTO lancamentos (
-                usuario_id, data, lote, aves, entradas, saidas, ovos, mortes, racao
+                usuario_id,
+                data,
+                lote,
+                aves,
+                entradas,
+                saidas,
+                ovos,
+                mortes,
+                racao
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 session["usuario_id"],
-                datetime.now().strftime("%Y-%m-%d"),
+                datetime.now().date(),
                 lote,
                 aves,
                 entradas,
@@ -355,12 +401,22 @@ def dashboard():
             }
 
             lote_consulta = lote
-            historico = buscar_historico_por_lote(session["usuario_id"], lote)
+
+            historico = buscar_historico_por_lote(
+                session["usuario_id"],
+                lote
+            )
+
             flash("Lançamento salvo com sucesso.")
 
         elif acao == "consultar":
+
             lote_consulta = request.form["lote_consulta"].strip().upper()
-            historico = buscar_historico_por_lote(session["usuario_id"], lote_consulta)
+
+            historico = buscar_historico_por_lote(
+                session["usuario_id"],
+                lote_consulta
+            )
 
     return render_template(
         "dashboard.html",
@@ -373,15 +429,20 @@ def dashboard():
 @app.route("/relatorio", methods=["GET", "POST"])
 @login_obrigatorio
 def relatorio():
-    criar_banco()
 
     ano_mes = datetime.now().strftime("%Y-%m")
+
     relatorio_lotes = []
     consolidado = None
 
     if request.method == "POST":
+
         ano_mes = request.form["ano_mes"]
-        relatorio_lotes, consolidado = gerar_relatorio_mensal(session["usuario_id"], ano_mes)
+
+        relatorio_lotes, consolidado = gerar_relatorio_mensal(
+            session["usuario_id"],
+            ano_mes
+        )
 
     return render_template(
         "relatorio_mensal.html",
@@ -392,8 +453,13 @@ def relatorio():
 
 
 if __name__ == "__main__":
+
     criar_banco()
+
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-    
+
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
     
