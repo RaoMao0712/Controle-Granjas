@@ -2,16 +2,30 @@ import os
 from datetime import datetime, timedelta
 from functools import wraps
 
+import mercadopago
 import psycopg2
 import psycopg2.extras
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    session,
+    flash,
+    jsonify
+)
 from werkzeug.security import generate_password_hash, check_password_hash
+
 
 app = Flask(__name__)
 app.secret_key = "troque-essa-chave-depois"
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
+MP_ACCESS_TOKEN = os.environ.get("MP_ACCESS_TOKEN")
+
+sdk = mercadopago.SDK(MP_ACCESS_TOKEN)
 
 
 def conectar():
@@ -54,20 +68,23 @@ def criar_banco():
     """)
 
     cursor.execute("""
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefone VARCHAR(30)
+    CREATE TABLE IF NOT EXISTS pagamentos (
+        id SERIAL PRIMARY KEY,
+        usuario_id INTEGER NOT NULL,
+        email VARCHAR(150),
+        status VARCHAR(50),
+        external_reference VARCHAR(150),
+        payment_id VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+    )
     """)
-    cursor.execute("""
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS status_assinatura VARCHAR(20) NOT NULL DEFAULT 'teste'
-    """)
-    cursor.execute("""
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS data_inicio_teste DATE
-    """)
-    cursor.execute("""
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS data_fim_teste DATE
-    """)
-    cursor.execute("""
-    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS data_ultimo_pagamento DATE
-    """)
+
+    cursor.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefone VARCHAR(30)")
+    cursor.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS status_assinatura VARCHAR(20) NOT NULL DEFAULT 'teste'")
+    cursor.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS data_inicio_teste DATE")
+    cursor.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS data_fim_teste DATE")
+    cursor.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS data_ultimo_pagamento DATE")
 
     cursor.execute("SELECT COUNT(*) AS total FROM usuarios")
     total = cursor.fetchone()["total"]
@@ -166,6 +183,7 @@ def buscar_media_postura_anterior(usuario_id, lote):
         return None
 
     posturas = []
+
     for item in registros:
         if item["aves"] > 0:
             posturas.append((item["ovos"] / item["aves"]) * 100)
@@ -190,6 +208,7 @@ def buscar_historico_por_lote(usuario_id, lote):
 
     registros = cursor.fetchall()
     conn.close()
+
     return registros
 
 
@@ -589,6 +608,86 @@ def bloquear_cliente(cliente_id):
 
     flash("Cliente bloqueado.")
     return redirect(url_for("admin_clientes"))
+
+
+@app.route("/webhook/mercadopago", methods=["POST"])
+def webhook_mercadopago():
+    try:
+        data = request.json
+
+        if not data:
+            return jsonify({"status": "sem dados"}), 200
+
+        tipo = data.get("type")
+
+        if tipo != "payment":
+            return jsonify({"status": "ignorado"}), 200
+
+        payment_id = data["data"]["id"]
+
+        pagamento = sdk.payment().get(payment_id)
+        resposta = pagamento["response"]
+
+        status = resposta.get("status")
+        external_reference = resposta.get("external_reference")
+
+        payer = resposta.get("payer", {})
+        email = payer.get("email")
+
+        if status != "approved":
+            return jsonify({"status": "pagamento não aprovado"}), 200
+
+        conn = conectar()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cursor.execute("""
+        SELECT *
+        FROM usuarios
+        WHERE email = %s
+        """, (email,))
+
+        usuario = cursor.fetchone()
+
+        if not usuario:
+            conn.close()
+            return jsonify({"status": "usuário não encontrado"}), 404
+
+        cursor.execute("""
+        UPDATE usuarios
+        SET status_assinatura = %s,
+            data_ultimo_pagamento = %s
+        WHERE id = %s
+        """, (
+            "ativo",
+            datetime.now().date(),
+            usuario["id"]
+        ))
+
+        cursor.execute("""
+        INSERT INTO pagamentos (
+            usuario_id,
+            email,
+            status,
+            external_reference,
+            payment_id
+        )
+        VALUES (%s, %s, %s, %s, %s)
+        """, (
+            usuario["id"],
+            email,
+            status,
+            external_reference,
+            str(payment_id)
+        ))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({"status": "ok"}), 200
+
+    except Exception as e:
+        print("ERRO WEBHOOK:", e)
+        return jsonify({"erro": str(e)}), 500
 
 
 if __name__ == "__main__":
