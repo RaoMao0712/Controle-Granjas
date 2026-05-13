@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 
 import psycopg2
@@ -15,8 +15,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
 def conectar():
-    conn = psycopg2.connect(DATABASE_URL)
-    return conn
+    return psycopg2.connect(DATABASE_URL)
 
 
 def criar_banco():
@@ -29,7 +28,12 @@ def criar_banco():
         nome VARCHAR(100) NOT NULL,
         email VARCHAR(150) UNIQUE NOT NULL,
         senha_hash TEXT NOT NULL,
-        tipo VARCHAR(20) NOT NULL DEFAULT 'cliente'
+        tipo VARCHAR(20) NOT NULL DEFAULT 'cliente',
+        telefone VARCHAR(30),
+        status_assinatura VARCHAR(20) NOT NULL DEFAULT 'teste',
+        data_inicio_teste DATE,
+        data_fim_teste DATE,
+        data_ultimo_pagamento DATE
     )
     """)
 
@@ -49,18 +53,45 @@ def criar_banco():
     )
     """)
 
+    # Atualiza bancos que já tinham a tabela usuarios antiga
+    cursor.execute("""
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefone VARCHAR(30)
+    """)
+    cursor.execute("""
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS status_assinatura VARCHAR(20) NOT NULL DEFAULT 'teste'
+    """)
+    cursor.execute("""
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS data_inicio_teste DATE
+    """)
+    cursor.execute("""
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS data_fim_teste DATE
+    """)
+    cursor.execute("""
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS data_ultimo_pagamento DATE
+    """)
+
     cursor.execute("SELECT COUNT(*) AS total FROM usuarios")
     total = cursor.fetchone()["total"]
 
     if total == 0:
+        hoje = datetime.now().date()
+        fim_teste = hoje + timedelta(days=3650)
+
         cursor.execute("""
-        INSERT INTO usuarios (nome, email, senha_hash, tipo)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO usuarios (
+            nome, email, senha_hash, tipo, telefone,
+            status_assinatura, data_inicio_teste, data_fim_teste
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             "Administrador",
             "admin@app.com",
             generate_password_hash("admin123"),
-            "admin"
+            "admin",
+            "",
+            "ativo",
+            hoje,
+            fim_teste
         ))
 
     conn.commit()
@@ -74,6 +105,35 @@ def login_obrigatorio(funcao):
             return redirect(url_for("login"))
         return funcao(*args, **kwargs)
     return wrapper
+
+
+def admin_obrigatorio(funcao):
+    @wraps(funcao)
+    def wrapper(*args, **kwargs):
+        if session.get("tipo") != "admin":
+            flash("Acesso restrito ao administrador.")
+            return redirect(url_for("dashboard"))
+        return funcao(*args, **kwargs)
+    return wrapper
+
+
+def verificar_acesso_cliente(usuario):
+    if usuario["tipo"] == "admin":
+        return True
+
+    status = usuario["status_assinatura"]
+
+    if status == "ativo":
+        return True
+
+    if status == "teste":
+        hoje = datetime.now().date()
+        data_fim = usuario["data_fim_teste"]
+
+        if data_fim and hoje <= data_fim:
+            return True
+
+    return False
 
 
 def calcular_indicadores(aves, ovos, mortes, racao):
@@ -107,7 +167,6 @@ def buscar_media_postura_anterior(usuario_id, lote):
         return None
 
     posturas = []
-
     for item in registros:
         if item["aves"] > 0:
             posturas.append((item["ovos"] / item["aves"]) * 100)
@@ -132,7 +191,6 @@ def buscar_historico_por_lote(usuario_id, lote):
 
     registros = cursor.fetchall()
     conn.close()
-
     return registros
 
 
@@ -169,12 +227,7 @@ def gerar_relatorio_mensal(usuario_id, ano_mes):
                 "soma_aves_dia": 0
             }
 
-        aves_final_dia = (
-            item["aves"]
-            + item["entradas"]
-            - item["mortes"]
-            - item["saidas"]
-        )
+        aves_final_dia = item["aves"] + item["entradas"] - item["mortes"] - item["saidas"]
 
         lotes[lote]["aves_final"] = aves_final_dia
         lotes[lote]["entradas"] += item["entradas"]
@@ -196,7 +249,6 @@ def gerar_relatorio_mensal(usuario_id, ano_mes):
     total_soma_aves_dia = 0
 
     for _, dados in lotes.items():
-
         produtividade = (
             dados["ovos"] / dados["soma_aves_dia"] * 100
             if dados["soma_aves_dia"] else 0
@@ -246,31 +298,27 @@ def gerar_relatorio_mensal(usuario_id, ano_mes):
 
 @app.route("/", methods=["GET", "POST"])
 def login():
-
     criar_banco()
 
     if request.method == "POST":
-
         email = request.form["email"].strip().lower()
         senha = request.form["senha"].strip()
 
         conn = conectar()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        cursor.execute(
-            "SELECT * FROM usuarios WHERE email = %s",
-            (email,)
-        )
-
+        cursor.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
         usuario = cursor.fetchone()
-
         conn.close()
 
         if usuario and check_password_hash(usuario["senha_hash"], senha):
-
             session["usuario_id"] = usuario["id"]
             session["nome"] = usuario["nome"]
             session["tipo"] = usuario["tipo"]
+            session["status_assinatura"] = usuario["status_assinatura"]
+
+            if not verificar_acesso_cliente(usuario):
+                return redirect(url_for("assinatura"))
 
             return redirect(url_for("dashboard"))
 
@@ -285,90 +333,55 @@ def sair():
     return redirect(url_for("login"))
 
 
+@app.route("/assinatura")
+def assinatura():
+    if "usuario_id" not in session:
+        return redirect(url_for("login"))
+
+    return render_template("assinatura.html")
+
+
 @app.route("/dashboard", methods=["GET", "POST"])
 @login_obrigatorio
 def dashboard():
-
     resultado = None
     historico = []
     lote_consulta = ""
 
     if request.method == "POST":
-
         acao = request.form.get("acao")
 
         if acao == "salvar":
-
             lote = request.form["lote"].strip().upper()
-
             aves = int(request.form["aves"])
             entradas = int(request.form.get("entradas") or 0)
             saidas = int(request.form.get("saidas") or 0)
-
             ovos = int(request.form["ovos"])
             mortes = int(request.form["mortes"])
-
             racao = float(request.form["racao"])
 
             aves_final = aves + entradas - mortes - saidas
 
-            indicadores = calcular_indicadores(
-                aves,
-                ovos,
-                mortes,
-                racao
-            )
-
-            media_anterior = buscar_media_postura_anterior(
-                session["usuario_id"],
-                lote
-            )
+            indicadores = calcular_indicadores(aves, ovos, mortes, racao)
+            media_anterior = buscar_media_postura_anterior(session["usuario_id"], lote)
 
             comparativo = None
-
             if media_anterior is not None:
-
-                diferenca = round(
-                    indicadores["postura"] - media_anterior,
-                    1
-                )
+                diferenca = round(indicadores["postura"] - media_anterior, 1)
 
                 if diferenca <= -3:
-                    comparativo = (
-                        f"Queda de {abs(diferenca)} pontos "
-                        f"na postura em relação à média anterior "
-                        f"({media_anterior}%)."
-                    )
-
+                    comparativo = f"Queda de {abs(diferenca)} pontos na postura em relação à média anterior ({media_anterior}%)."
                 elif diferenca >= 3:
-                    comparativo = (
-                        f"Alta de {diferenca} pontos "
-                        f"na postura em relação à média anterior "
-                        f"({media_anterior}%)."
-                    )
-
+                    comparativo = f"Alta de {diferenca} pontos na postura em relação à média anterior ({media_anterior}%)."
                 else:
-                    comparativo = (
-                        f"Variação pequena de {diferenca} ponto(s) "
-                        f"em relação à média anterior "
-                        f"({media_anterior}%)."
-                    )
+                    comparativo = f"Variação pequena de {diferenca} ponto(s) em relação à média anterior ({media_anterior}%)."
 
             conn = conectar()
-
             cursor = conn.cursor()
 
             cursor.execute("""
             INSERT INTO lancamentos (
-                usuario_id,
-                data,
-                lote,
-                aves,
-                entradas,
-                saidas,
-                ovos,
-                mortes,
-                racao
+                usuario_id, data, lote, aves, entradas, saidas, ovos, mortes, racao
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
@@ -401,22 +414,12 @@ def dashboard():
             }
 
             lote_consulta = lote
-
-            historico = buscar_historico_por_lote(
-                session["usuario_id"],
-                lote
-            )
-
+            historico = buscar_historico_por_lote(session["usuario_id"], lote)
             flash("Lançamento salvo com sucesso.")
 
         elif acao == "consultar":
-
             lote_consulta = request.form["lote_consulta"].strip().upper()
-
-            historico = buscar_historico_por_lote(
-                session["usuario_id"],
-                lote_consulta
-            )
+            historico = buscar_historico_por_lote(session["usuario_id"], lote_consulta)
 
     return render_template(
         "dashboard.html",
@@ -429,20 +432,13 @@ def dashboard():
 @app.route("/relatorio", methods=["GET", "POST"])
 @login_obrigatorio
 def relatorio():
-
     ano_mes = datetime.now().strftime("%Y-%m")
-
     relatorio_lotes = []
     consolidado = None
 
     if request.method == "POST":
-
         ano_mes = request.form["ano_mes"]
-
-        relatorio_lotes, consolidado = gerar_relatorio_mensal(
-            session["usuario_id"],
-            ano_mes
-        )
+        relatorio_lotes, consolidado = gerar_relatorio_mensal(session["usuario_id"], ano_mes)
 
     return render_template(
         "relatorio_mensal.html",
@@ -452,14 +448,106 @@ def relatorio():
     )
 
 
+@app.route("/admin/clientes", methods=["GET", "POST"])
+@login_obrigatorio
+@admin_obrigatorio
+def admin_clientes():
+    if request.method == "POST":
+        nome = request.form["nome"].strip()
+        email = request.form["email"].strip().lower()
+        telefone = request.form["telefone"].strip()
+        senha = request.form["senha"].strip()
+
+        hoje = datetime.now().date()
+        fim_teste = hoje + timedelta(days=7)
+
+        conn = conectar()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("""
+            INSERT INTO usuarios (
+                nome, email, senha_hash, tipo, telefone,
+                status_assinatura, data_inicio_teste, data_fim_teste
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                nome,
+                email,
+                generate_password_hash(senha),
+                "cliente",
+                telefone,
+                "teste",
+                hoje,
+                fim_teste
+            ))
+
+            conn.commit()
+            flash("Cliente cadastrado com 7 dias grátis.")
+        except psycopg2.errors.UniqueViolation:
+            conn.rollback()
+            flash("Este e-mail já está cadastrado.")
+        finally:
+            conn.close()
+
+    conn = conectar()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cursor.execute("""
+    SELECT id, nome, email, telefone, status_assinatura,
+           data_inicio_teste, data_fim_teste, data_ultimo_pagamento
+    FROM usuarios
+    ORDER BY id DESC
+    """)
+
+    clientes = cursor.fetchall()
+    conn.close()
+
+    return render_template("admin_clientes.html", clientes=clientes)
+
+
+@app.route("/admin/cliente/<int:cliente_id>/ativar")
+@login_obrigatorio
+@admin_obrigatorio
+def ativar_cliente(cliente_id):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    UPDATE usuarios
+    SET status_assinatura = %s,
+        data_ultimo_pagamento = %s
+    WHERE id = %s
+    """, ("ativo", datetime.now().date(), cliente_id))
+
+    conn.commit()
+    conn.close()
+
+    flash("Cliente ativado com sucesso.")
+    return redirect(url_for("admin_clientes"))
+
+
+@app.route("/admin/cliente/<int:cliente_id>/bloquear")
+@login_obrigatorio
+@admin_obrigatorio
+def bloquear_cliente(cliente_id):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    UPDATE usuarios
+    SET status_assinatura = %s
+    WHERE id = %s
+    """, ("bloqueado", cliente_id))
+
+    conn.commit()
+    conn.close()
+
+    flash("Cliente bloqueado.")
+    return redirect(url_for("admin_clientes"))
+
+
 if __name__ == "__main__":
-
     criar_banco()
-
     port = int(os.environ.get("PORT", 5000))
-
-    app.run(
-        host="0.0.0.0",
-        port=port
-    )
-    
+    app.run(host="0.0.0.0", port=port)
