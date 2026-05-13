@@ -53,7 +53,6 @@ def criar_banco():
     )
     """)
 
-    # Atualiza bancos que já tinham a tabela usuarios antiga
     cursor.execute("""
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefone VARCHAR(30)
     """)
@@ -339,6 +338,51 @@ def assinatura():
         return redirect(url_for("login"))
 
     return render_template("assinatura.html")
+
+
+@app.route("/trocar-senha", methods=["GET", "POST"])
+@login_obrigatorio
+def trocar_senha():
+    if request.method == "POST":
+        senha_atual = request.form["senha_atual"].strip()
+        nova_senha = request.form["nova_senha"].strip()
+        confirmar_senha = request.form["confirmar_senha"].strip()
+
+        if nova_senha != confirmar_senha:
+            flash("A nova senha e a confirmação não conferem.")
+            return redirect(url_for("trocar_senha"))
+
+        if len(nova_senha) < 6:
+            flash("A nova senha deve ter pelo menos 6 caracteres.")
+            return redirect(url_for("trocar_senha"))
+
+        conn = conectar()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cursor.execute("SELECT * FROM usuarios WHERE id = %s", (session["usuario_id"],))
+        usuario = cursor.fetchone()
+
+        if not usuario or not check_password_hash(usuario["senha_hash"], senha_atual):
+            conn.close()
+            flash("Senha atual incorreta.")
+            return redirect(url_for("trocar_senha"))
+
+        cursor.execute("""
+        UPDATE usuarios
+        SET senha_hash = %s
+        WHERE id = %s
+        """, (
+            generate_password_hash(nova_senha),
+            session["usuario_id"]
+        ))
+
+        conn.commit()
+        conn.close()
+
+        flash("Senha alterada com sucesso.")
+        return redirect(url_for("dashboard"))
+
+    return render_template("trocar_senha.html")
 
 
 @app.route("/dashboard", methods=["GET", "POST"])
