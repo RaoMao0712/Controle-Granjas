@@ -11,13 +11,18 @@
         <header class="topo">
             <div>
                 <h1>Granja<span>Pro</span></h1>
-                <p>Controle profissional de produção de ovos</p>
+                <p>Controle profissional de produção por lote</p>
             </div>
 
             {% if session.get("usuario_id") %}
             <nav>
                 <a href="{{ url_for('dashboard') }}">Lançamentos</a>
                 <a href="{{ url_for('relatorio') }}">Relatório</a>
+
+                {% if session.get("tipo") == "admin" %}
+                    <a href="{{ url_for('admin_clientes') }}">Clientes</a>
+                {% endif %}
+
                 <a href="{{ url_for('sair') }}">Sair</a>
             </nav>
             {% endif %}
