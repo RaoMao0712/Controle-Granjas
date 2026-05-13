@@ -1,1 +1,20 @@
+{% extends "base.html" %}
 
+{% block conteudo %}
+<div class="card login-card">
+    <h2>Trocar senha</h2>
+
+    <form method="POST">
+        <label>Senha atual</label>
+        <input type="password" name="senha_atual" required>
+
+        <label>Nova senha</label>
+        <input type="password" name="nova_senha" required>
+
+        <label>Confirmar nova senha</label>
+        <input type="password" name="confirmar_senha" required>
+
+        <button type="submit">Alterar senha</button>
+    </form>
+</div>
+{% endblock %}
