@@ -16,14 +16,26 @@ from flask import (
     flash,
     jsonify
 )
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
 app = Flask(__name__)
-app.secret_key = "troque-essa-chave-depois"
+app.secret_key = os.environ.get("SECRET_KEY", "troque-essa-chave-depois")
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 MP_ACCESS_TOKEN = os.environ.get("MP_ACCESS_TOKEN")
+
+app.config["MAIL_SERVER"] = "smtp.gmail.com"
+app.config["MAIL_PORT"] = 587
+app.config["MAIL_USE_TLS"] = True
+app.config["MAIL_USERNAME"] = os.environ.get("MAIL_USERNAME")
+app.config["MAIL_PASSWORD"] = os.environ.get("MAIL_PASSWORD")
+app.config["MAIL_DEFAULT_SENDER"] = os.environ.get("MAIL_DEFAULT_SENDER")
+
+mail = Mail(app)
+serializer = URLSafeTimedSerializer(app.secret_key)
 
 sdk = mercadopago.SDK(MP_ACCESS_TOKEN)
 
@@ -343,6 +355,98 @@ def login():
         flash("E-mail ou senha inválidos.")
 
     return render_template("login.html")
+
+
+@app.route("/esqueci-senha", methods=["GET", "POST"])
+def esqueci_senha():
+    if request.method == "POST":
+        email = request.form["email"].strip().lower()
+
+        conn = conectar()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cursor.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
+        usuario = cursor.fetchone()
+        conn.close()
+
+        if usuario:
+            token = serializer.dumps(email, salt="recuperar-senha")
+            link = url_for("redefinir_senha", token=token, _external=True)
+
+            msg = Message(
+                subject="Recuperação de senha - GranjaPro",
+                recipients=[email],
+                body=f"""
+Olá!
+
+Recebemos uma solicitação para redefinir sua senha no GranjaPro.
+
+Clique no link abaixo para criar uma nova senha:
+
+{link}
+
+Este link é válido por 1 hora.
+
+Se você não solicitou essa recuperação, ignore este e-mail.
+
+Equipe GranjaPro
+"""
+            )
+
+            mail.send(msg)
+
+        flash("Se este e-mail estiver cadastrado, enviaremos um link de recuperação.")
+        return redirect(url_for("login"))
+
+    return render_template("esqueci_senha.html")
+
+
+@app.route("/redefinir-senha/<token>", methods=["GET", "POST"])
+def redefinir_senha(token):
+    try:
+        email = serializer.loads(
+            token,
+            salt="recuperar-senha",
+            max_age=3600
+        )
+    except SignatureExpired:
+        flash("O link expirou. Solicite uma nova recuperação de senha.")
+        return redirect(url_for("esqueci_senha"))
+    except BadSignature:
+        flash("Link inválido. Solicite uma nova recuperação de senha.")
+        return redirect(url_for("esqueci_senha"))
+
+    if request.method == "POST":
+        nova_senha = request.form["nova_senha"].strip()
+        confirmar_senha = request.form["confirmar_senha"].strip()
+
+        if nova_senha != confirmar_senha:
+            flash("A nova senha e a confirmação não conferem.")
+            return redirect(url_for("redefinir_senha", token=token))
+
+        if len(nova_senha) < 6:
+            flash("A senha deve ter pelo menos 6 caracteres.")
+            return redirect(url_for("redefinir_senha", token=token))
+
+        conn = conectar()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+        UPDATE usuarios
+        SET senha_hash = %s
+        WHERE email = %s
+        """, (
+            generate_password_hash(nova_senha),
+            email
+        ))
+
+        conn.commit()
+        conn.close()
+
+        flash("Senha redefinida com sucesso. Faça login novamente.")
+        return redirect(url_for("login"))
+
+    return render_template("redefinir_senha.html")
 
 
 @app.route("/sair")
@@ -694,3 +798,4 @@ if __name__ == "__main__":
     criar_banco()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+    
