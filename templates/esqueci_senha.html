@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block conteudo %}
+<div class="card login-card">
+    <h2>Recuperar senha</h2>
+
+    <p>Informe seu e-mail cadastrado para receber o link de recuperação.</p>
+
+    <form method="POST">
+        <label>E-mail</label>
+        <input type="email" name="email" required>
+
+        <button type="submit">Enviar link de recuperação</button>
+    </form>
+</div>
+{% endblock %}
