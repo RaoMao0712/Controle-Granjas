@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block conteudo %}
+<div class="card login-card">
+    <h2>Definir nova senha</h2>
+
+    <form method="POST">
+        <label>Nova senha</label>
+        <input type="password" name="nova_senha" required>
+
+        <label>Confirmar nova senha</label>
+        <input type="password" name="confirmar_senha" required>
+
+        <button type="submit">Salvar nova senha</button>
+    </form>
+</div>
+{% endblock %}
