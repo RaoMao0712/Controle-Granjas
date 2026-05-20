@@ -5,18 +5,12 @@ from functools import wraps
 import mercadopago
 import psycopg2
 import psycopg2.extras
+import resend
 
 from flask import (
-    Flask,
-    render_template,
-    request,
-    redirect,
-    url_for,
-    session,
-    flash,
-    jsonify
+    Flask, render_template, request, redirect, url_for,
+    session, flash, jsonify
 )
-from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -26,24 +20,39 @@ app.secret_key = os.environ.get("SECRET_KEY", "troque-essa-chave-depois")
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 MP_ACCESS_TOKEN = os.environ.get("MP_ACCESS_TOKEN")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", "onboarding@resend.dev")
 
-app.config["MAIL_SERVER"] = "smtp.gmail.com"
-app.config["MAIL_PORT"] = 465
-app.config["MAIL_USE_TLS"] = False
-app.config["MAIL_USE_SSL"] = True
-app.config["MAIL_USERNAME"] = os.environ.get("MAIL_USERNAME")
-app.config["MAIL_PASSWORD"] = os.environ.get("MAIL_PASSWORD")
-app.config["MAIL_DEFAULT_SENDER"] = os.environ.get("MAIL_DEFAULT_SENDER")
-app.config["MAIL_TIMEOUT"] = 10
-
-mail = Mail(app)
+resend.api_key = RESEND_API_KEY
 serializer = URLSafeTimedSerializer(app.secret_key)
-
 sdk = mercadopago.SDK(MP_ACCESS_TOKEN)
 
 
 def conectar():
     return psycopg2.connect(DATABASE_URL)
+
+
+def enviar_email_recuperacao(destinatario, link):
+    resend.Emails.send({
+        "from": MAIL_DEFAULT_SENDER,
+        "to": destinatario,
+        "subject": "Recuperação de senha - GranjaPro",
+        "html": f"""
+        <p>Olá!</p>
+
+        <p>Recebemos uma solicitação para redefinir sua senha no <strong>GranjaPro</strong>.</p>
+
+        <p>Clique no link abaixo para criar uma nova senha:</p>
+
+        <p><a href="{link}">{link}</a></p>
+
+        <p>Este link é válido por 1 hora.</p>
+
+        <p>Se você não solicitou essa recuperação, ignore este e-mail.</p>
+
+        <p>Equipe GranjaPro</p>
+        """
+    })
 
 
 def criar_banco():
@@ -151,17 +160,12 @@ def verificar_acesso_cliente(usuario):
     if usuario["tipo"] == "admin":
         return True
 
-    status = usuario["status_assinatura"]
-
-    if status == "ativo":
+    if usuario["status_assinatura"] == "ativo":
         return True
 
-    if status == "teste":
+    if usuario["status_assinatura"] == "teste":
         hoje = datetime.now().date()
-        data_fim = usuario["data_fim_teste"]
-
-        if data_fim and hoje <= data_fim:
-            return True
+        return usuario["data_fim_teste"] and hoje <= usuario["data_fim_teste"]
 
     return False
 
@@ -196,11 +200,7 @@ def buscar_media_postura_anterior(usuario_id, lote):
     if not registros:
         return None
 
-    posturas = []
-
-    for item in registros:
-        if item["aves"] > 0:
-            posturas.append((item["ovos"] / item["aves"]) * 100)
+    posturas = [(r["ovos"] / r["aves"]) * 100 for r in registros if r["aves"] > 0]
 
     if not posturas:
         return None
@@ -222,7 +222,6 @@ def buscar_historico_por_lote(usuario_id, lote):
 
     registros = cursor.fetchall()
     conn.close()
-
     return registros
 
 
@@ -338,7 +337,6 @@ def login():
 
         conn = conectar()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
         cursor.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
         usuario = cursor.fetchone()
         conn.close()
@@ -366,7 +364,6 @@ def esqueci_senha():
 
         conn = conectar()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
         cursor.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
         usuario = cursor.fetchone()
         conn.close()
@@ -375,27 +372,10 @@ def esqueci_senha():
             token = serializer.dumps(email, salt="recuperar-senha")
             link = url_for("redefinir_senha", token=token, _external=True)
 
-            msg = Message(
-                subject="Recuperação de senha - GranjaPro",
-                recipients=[email],
-                body=f"""
-Olá!
-
-Recebemos uma solicitação para redefinir sua senha no GranjaPro.
-
-Clique no link abaixo para criar uma nova senha:
-
-{link}
-
-Este link é válido por 1 hora.
-
-Se você não solicitou essa recuperação, ignore este e-mail.
-
-Equipe GranjaPro
-"""
-            )
-
-            mail.send(msg)
+            try:
+                enviar_email_recuperacao(email, link)
+            except Exception as e:
+                print("ERRO AO ENVIAR EMAIL:", e)
 
         flash("Se este e-mail estiver cadastrado, enviaremos um link de recuperação.")
         return redirect(url_for("login"))
@@ -406,11 +386,7 @@ Equipe GranjaPro
 @app.route("/redefinir-senha/<token>", methods=["GET", "POST"])
 def redefinir_senha(token):
     try:
-        email = serializer.loads(
-            token,
-            salt="recuperar-senha",
-            max_age=3600
-        )
+        email = serializer.loads(token, salt="recuperar-senha", max_age=3600)
     except SignatureExpired:
         flash("O link expirou. Solicite uma nova recuperação de senha.")
         return redirect(url_for("esqueci_senha"))
@@ -800,4 +776,4 @@ if __name__ == "__main__":
     criar_banco()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-    
+        
