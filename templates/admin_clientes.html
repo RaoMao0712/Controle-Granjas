@@ -1,63 +1,21 @@
-{% extends "base.html" %}
+<div class="card">
+    <h2>Solicitações de acesso</h2>
 
-{% block conteudo %}
-<div class="grid-dashboard">
-
-    <div class="coluna">
-        <div class="card">
-            <h2>Cadastrar cliente</h2>
-
-            <form method="POST">
-                <label>Nome da granja / cliente</label>
-                <input type="text" name="nome" required>
-
-                <label>E-mail</label>
-                <input type="email" name="email" required>
-
-                <label>Telefone</label>
-                <input type="text" name="telefone">
-
-                <label>Senha inicial</label>
-                <input type="text" name="senha" required>
-
-                <button type="submit">Cadastrar com 7 dias grátis</button>
-            </form>
+    {% if interessados %}
+        {% for item in interessados %}
+        <div class="history-item">
+            <p><strong>Nome:</strong> {{ item.nome }}</p>
+            <p><strong>E-mail:</strong> {{ item.email }}</p>
+            <p><strong>WhatsApp:</strong> {{ item.telefone or "-" }}</p>
+            <p><strong>Cidade:</strong> {{ item.cidade or "-" }}</p>
+            <p><strong>Aves:</strong> {{ item.quantidade_aves or "-" }}</p>
+            <p><strong>Mensagem:</strong> {{ item.mensagem or "-" }}</p>
+            <p><strong>Data:</strong> {{ item.created_at }}</p>
         </div>
-    </div>
-
-    <div class="coluna">
-        <div class="card card-consulta">
-            <h2>Clientes cadastrados</h2>
-
-            {% if clientes %}
-                {% for cliente in clientes %}
-                <div class="history-item">
-                    <p><strong>Nome:</strong> {{ cliente.nome }}</p>
-                    <p><strong>E-mail:</strong> {{ cliente.email }}</p>
-                    <p><strong>Telefone:</strong> {{ cliente.telefone or "-" }}</p>
-                    <p><strong>Status:</strong> {{ cliente.status_assinatura }}</p>
-                    <p><strong>Início do teste:</strong> {{ cliente.data_inicio_teste or "-" }}</p>
-                    <p><strong>Fim do teste:</strong> {{ cliente.data_fim_teste or "-" }}</p>
-                    <p><strong>Último pagamento:</strong> {{ cliente.data_ultimo_pagamento or "-" }}</p>
-
-                    <div class="acoes-cliente">
-                        <a class="botao-link" href="{{ url_for('ativar_cliente', cliente_id=cliente.id) }}">
-                            Ativar
-                        </a>
-
-                        <a class="botao-link botao-bloquear" href="{{ url_for('bloquear_cliente', cliente_id=cliente.id) }}">
-                            Bloquear
-                        </a>
-                    </div>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="caixa-vazia">
-                    Nenhum cliente cadastrado.
-                </div>
-            {% endif %}
+        {% endfor %}
+    {% else %}
+        <div class="caixa-vazia">
+            Nenhuma solicitação recebida ainda.
         </div>
-    </div>
-
+    {% endif %}
 </div>
-{% endblock %}
