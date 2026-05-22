@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block conteudo %}
+<div class="card login-card">
+    <h2>Solicitar acesso ao GranjaPro</h2>
+
+    <p>Preencha seus dados para avaliarmos a liberação do teste gratuito.</p>
+
+    <form method="POST">
+        <label>Nome da granja / responsável</label>
+        <input type="text" name="nome" required>
+
+        <label>E-mail</label>
+        <input type="email" name="email" required>
+
+        <label>WhatsApp</label>
+        <input type="text" name="telefone" required>
+
+        <label>Cidade / Estado</label>
+        <input type="text" name="cidade">
+
+        <label>Quantidade aproximada de aves</label>
+        <input type="text" name="quantidade_aves">
+
+        <label>Mensagem</label>
+        <input type="text" name="mensagem" placeholder="Conte rapidamente sua necessidade">
+
+        <button type="submit">Solicitar acesso</button>
+    </form>
+</div>
+{% endblock %}
