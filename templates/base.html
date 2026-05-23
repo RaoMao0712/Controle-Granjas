@@ -9,15 +9,15 @@
 <body>
     <div class="overlay">
         <header class="topo">
-            <div>
+            <div class="brand">
                 <h1>Granja<span>Pro</span></h1>
                 <p>Controle profissional de produção por lote</p>
             </div>
 
             {% if session.get("usuario_id") %}
-            <nav>
+            <nav class="menu">
                 <a href="{{ url_for('dashboard') }}">Lançamentos</a>
-                <a href="{{ url_for('relatorio') }}">Relatório</a>
+                <a href="{{ url_for('relatorio') }}">Relatórios</a>
 
                 {% if session.get("tipo") == "admin" %}
                     <a href="{{ url_for('admin_clientes') }}">Clientes</a>
