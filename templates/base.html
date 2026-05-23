@@ -18,6 +18,7 @@
             <nav class="menu">
                 <a href="{{ url_for('dashboard') }}">Lançamentos</a>
                 <a href="{{ url_for('relatorio') }}">Relatórios</a>
+                <a href="{{ url_for('ajustes') }}">Ajustes</a>
 
                 {% if session.get("tipo") == "admin" %}
                     <a href="{{ url_for('admin_clientes') }}">Clientes</a>
