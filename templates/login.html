@@ -1,31 +1,36 @@
 {% extends "base.html" %}
 
 {% block conteudo %}
-<div class="card login-card">
-    <h2>Bem-vindo ao GranjaPro</h2>
+<div class="login-wrapper">
+    <div class="card login-card">
+        <h2>Bem-vindo ao GranjaPro</h2>
 
-    <form method="POST">
-        <label>E-mail</label>
-        <input type="email" name="email" required>
+        <p class="login-subtitle">
+            Acesse sua conta para acompanhar os lançamentos, histórico e relatórios da granja.
+        </p>
 
-        <label>Senha</label>
-        <input type="password" name="senha" required>
+        <form method="POST">
+            <label>E-mail</label>
+            <input type="email" name="email" required>
 
-        <button type="submit">Entrar</button>
-    </form>
+            <label>Senha</label>
+            <input type="password" name="senha" required>
 
-    <p class="obs">
-        <a href="{{ url_for('esqueci_senha') }}">Esqueci minha senha</a>
-    </p>
+            <button type="submit">Entrar</button>
+        </form>
 
-    <div class="plano">
-        Plano profissional: <strong>R$ 39,90/mês</strong>
+        <p class="obs">
+            <a href="{{ url_for('esqueci_senha') }}">Esqueci minha senha</a>
+        </p>
+
+        <div class="plano">
+            Plano profissional: <strong>R$ 39,90/mês</strong>
+        </div>
+
+        <p class="obs">
+            Ainda não tem acesso?<br>
+            <a href="{{ url_for('cadastro') }}">Solicitar cadastro gratuito</a>
+        </p>
     </div>
-
-    <p class="obs">
-        Ainda não tem acesso?
-        <br>
-        <a href="{{ url_for('cadastro') }}">Solicitar cadastro gratuito</a>
-    </p>
 </div>
 {% endblock %}
