@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block conteudo %}
+<div class="grid-dashboard">
+
+    <div class="card">
+        <h2>Lançamentos recentes para ajuste</h2>
+
+        {% if lancamentos %}
+            {% for item in lancamentos %}
+            <div class="history-item">
+                <p><strong>Data:</strong> {{ item.data }}</p>
+                <p><strong>Lote:</strong> {{ item.lote }}</p>
+                <p><strong>Aves início:</strong> {{ item.aves }}</p>
+                <p><strong>Entradas:</strong> {{ item.entradas }}</p>
+                <p><strong>Mortes:</strong> {{ item.mortes }}</p>
+                <p><strong>Saídas / ajustes:</strong> {{ item.saidas }}</p>
+                <p><strong>Ovos:</strong> {{ item.ovos }}</p>
+                <p><strong>Ração:</strong> {{ item.racao }} kg</p>
+
+                <a class="botao-link" href="{{ url_for('editar_lancamento', lancamento_id=item.id) }}">
+                    Editar com justificativa
+                </a>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="caixa-vazia">
+                Nenhum lançamento encontrado.
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Relatório de ajustes</h2>
+
+        {% if historico_ajustes %}
+            {% for ajuste in historico_ajustes %}
+            <div class="history-item">
+                <p><strong>Data do lançamento:</strong> {{ ajuste.data }}</p>
+                <p><strong>Lote:</strong> {{ ajuste.lote }}</p>
+                <p><strong>Campo alterado:</strong> {{ ajuste.campo }}</p>
+                <p><strong>Valor anterior:</strong> {{ ajuste.valor_anterior }}</p>
+                <p><strong>Valor novo:</strong> {{ ajuste.valor_novo }}</p>
+                <p><strong>Justificativa:</strong> {{ ajuste.justificativa }}</p>
+                <p><strong>Data do ajuste:</strong> {{ ajuste.data_ajuste }}</p>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="caixa-vazia">
+                Nenhum ajuste registrado ainda.
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
