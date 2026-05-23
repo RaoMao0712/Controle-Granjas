@@ -18,26 +18,42 @@
             <form method="POST">
                 <input type="hidden" name="acao" value="salvar">
 
-                <label>Lote</label>
-                <input type="text" name="lote" required>
+                <div class="form-grid">
+                    <div>
+                        <label>Lote</label>
+                        <input type="text" name="lote" required>
+                    </div>
 
-                <label>Aves no início do dia</label>
-                <input type="number" name="aves" required>
+                    <div>
+                        <label>Aves no início do dia</label>
+                        <input type="number" name="aves" required>
+                    </div>
 
-                <label>Entradas de aves</label>
-                <input type="number" name="entradas" value="0" min="0">
+                    <div>
+                        <label>Entradas de aves</label>
+                        <input type="number" name="entradas" value="0" min="0">
+                    </div>
 
-                <label>Saídas / ajustes</label>
-                <input type="number" name="saidas" value="0" min="0">
+                    <div>
+                        <label>Saídas / ajustes</label>
+                        <input type="number" name="saidas" value="0" min="0">
+                    </div>
 
-                <label>Ovos produzidos</label>
-                <input type="number" name="ovos" required>
+                    <div>
+                        <label>Ovos produzidos</label>
+                        <input type="number" name="ovos" required>
+                    </div>
 
-                <label>Mortes</label>
-                <input type="number" name="mortes" required>
+                    <div>
+                        <label>Mortes</label>
+                        <input type="number" name="mortes" required>
+                    </div>
 
-                <label>Ração consumida (kg)</label>
-                <input type="number" step="0.01" name="racao" required>
+                    <div>
+                        <label>Ração consumida (kg)</label>
+                        <input type="number" step="0.01" name="racao" required>
+                    </div>
+                </div>
 
                 <button type="submit">Salvar lançamento</button>
             </form>
@@ -47,16 +63,18 @@
         <div class="card resultado">
             <h2>Resultado do dia</h2>
 
-            <p><strong>Lote:</strong> {{ resultado.lote }}</p>
-            <p><strong>Aves no início:</strong> {{ resultado.aves }}</p>
-            <p><strong>Entradas:</strong> {{ resultado.entradas }}</p>
-            <p><strong>Mortes:</strong> {{ resultado.mortes }}</p>
-            <p><strong>Saídas / ajustes:</strong> {{ resultado.saidas }}</p>
-            <p><strong>Aves no final:</strong> {{ resultado.aves_final }}</p>
-            <p><strong>Ovos:</strong> {{ resultado.ovos }}</p>
-            <p><strong>Postura:</strong> {{ resultado.postura }}%</p>
-            <p><strong>Mortalidade:</strong> {{ resultado.mortalidade }}%</p>
-            <p><strong>Consumo por ave:</strong> {{ resultado.consumo }} g</p>
+            <div class="resultado-grid">
+                <p><strong>Lote:</strong> {{ resultado.lote }}</p>
+                <p><strong>Aves no início:</strong> {{ resultado.aves }}</p>
+                <p><strong>Entradas:</strong> {{ resultado.entradas }}</p>
+                <p><strong>Mortes:</strong> {{ resultado.mortes }}</p>
+                <p><strong>Saídas / ajustes:</strong> {{ resultado.saidas }}</p>
+                <p><strong>Aves no final:</strong> {{ resultado.aves_final }}</p>
+                <p><strong>Ovos:</strong> {{ resultado.ovos }}</p>
+                <p><strong>Postura:</strong> {{ resultado.postura }}%</p>
+                <p><strong>Mortalidade:</strong> {{ resultado.mortalidade }}%</p>
+                <p><strong>Consumo por ave:</strong> {{ resultado.consumo }} g</p>
+            </div>
 
             {% if resultado.comparativo %}
                 <div class="comparativo">{{ resultado.comparativo }}</div>
@@ -72,8 +90,12 @@
             <form method="POST">
                 <input type="hidden" name="acao" value="consultar">
 
-                <label>Lote</label>
-                <input type="text" name="lote_consulta" value="{{ lote_consulta }}" required>
+                <div class="form-grid form-grid-consulta">
+                    <div>
+                        <label>Lote</label>
+                        <input type="text" name="lote_consulta" value="{{ lote_consulta }}" required>
+                    </div>
+                </div>
 
                 <button type="submit">Consultar histórico</button>
             </form>
