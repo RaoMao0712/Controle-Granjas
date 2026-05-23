@@ -83,6 +83,21 @@ def criar_banco():
     """)
 
     cursor.execute("""
+    CREATE TABLE IF NOT EXISTS ajustes_lancamentos (
+        id SERIAL PRIMARY KEY,
+        lancamento_id INTEGER NOT NULL,
+        usuario_id INTEGER NOT NULL,
+        data_ajuste TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        campo VARCHAR(80) NOT NULL,
+        valor_anterior TEXT,
+        valor_novo TEXT,
+        justificativa TEXT NOT NULL,
+        FOREIGN KEY (lancamento_id) REFERENCES lancamentos(id),
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+    )
+    """)
+
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS pagamentos (
         id SERIAL PRIMARY KEY,
         usuario_id INTEGER NOT NULL,
@@ -605,6 +620,148 @@ def relatorio():
         ano_mes=ano_mes,
         relatorio_lotes=relatorio_lotes,
         consolidado=consolidado
+    )
+
+
+@app.route("/ajustes")
+@login_obrigatorio
+def ajustes():
+    conn = conectar()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cursor.execute("""
+    SELECT *
+    FROM lancamentos
+    WHERE usuario_id = %s
+    ORDER BY data DESC, id DESC
+    LIMIT 30
+    """, (session["usuario_id"],))
+
+    lancamentos = cursor.fetchall()
+
+    cursor.execute("""
+    SELECT a.*, l.lote, l.data, u.nome
+    FROM ajustes_lancamentos a
+    JOIN lancamentos l ON l.id = a.lancamento_id
+    JOIN usuarios u ON u.id = a.usuario_id
+    WHERE l.usuario_id = %s
+    ORDER BY a.data_ajuste DESC
+    LIMIT 50
+    """, (session["usuario_id"],))
+
+    historico_ajustes = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "ajustes.html",
+        lancamentos=lancamentos,
+        historico_ajustes=historico_ajustes
+    )
+
+
+@app.route("/ajustes/editar/<int:lancamento_id>", methods=["GET", "POST"])
+@login_obrigatorio
+def editar_lancamento(lancamento_id):
+    conn = conectar()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cursor.execute("""
+    SELECT *
+    FROM lancamentos
+    WHERE id = %s AND usuario_id = %s
+    """, (
+        lancamento_id,
+        session["usuario_id"]
+    ))
+
+    lancamento = cursor.fetchone()
+
+    if not lancamento:
+        conn.close()
+        flash("Lançamento não encontrado.")
+        return redirect(url_for("ajustes"))
+
+    if request.method == "POST":
+        justificativa = request.form["justificativa"].strip()
+
+        if len(justificativa) < 10:
+            conn.close()
+            flash("Informe uma justificativa mais detalhada para o ajuste.")
+            return redirect(url_for("editar_lancamento", lancamento_id=lancamento_id))
+
+        novos_dados = {
+            "lote": request.form["lote"].strip().upper(),
+            "aves": int(request.form["aves"]),
+            "entradas": int(request.form.get("entradas") or 0),
+            "saidas": int(request.form.get("saidas") or 0),
+            "ovos": int(request.form["ovos"]),
+            "mortes": int(request.form["mortes"]),
+            "racao": float(request.form["racao"])
+        }
+
+        campos_alterados = []
+
+        for campo, valor_novo in novos_dados.items():
+            valor_antigo = lancamento[campo]
+
+            if str(valor_antigo) != str(valor_novo):
+                campos_alterados.append((campo, valor_antigo, valor_novo))
+
+        if not campos_alterados:
+            conn.close()
+            flash("Nenhuma alteração foi identificada.")
+            return redirect(url_for("ajustes"))
+
+        for campo, valor_antigo, valor_novo in campos_alterados:
+            cursor.execute("""
+            INSERT INTO ajustes_lancamentos (
+                lancamento_id, usuario_id, campo,
+                valor_anterior, valor_novo, justificativa
+            )
+            VALUES (%s,%s,%s,%s,%s,%s)
+            """, (
+                lancamento_id,
+                session["usuario_id"],
+                campo,
+                str(valor_antigo),
+                str(valor_novo),
+                justificativa
+            ))
+
+        cursor.execute("""
+        UPDATE lancamentos
+        SET lote = %s,
+            aves = %s,
+            entradas = %s,
+            saidas = %s,
+            ovos = %s,
+            mortes = %s,
+            racao = %s
+        WHERE id = %s AND usuario_id = %s
+        """, (
+            novos_dados["lote"],
+            novos_dados["aves"],
+            novos_dados["entradas"],
+            novos_dados["saidas"],
+            novos_dados["ovos"],
+            novos_dados["mortes"],
+            novos_dados["racao"],
+            lancamento_id,
+            session["usuario_id"]
+        ))
+
+        conn.commit()
+        conn.close()
+
+        flash("Lançamento ajustado com justificativa registrada.")
+        return redirect(url_for("ajustes"))
+
+    conn.close()
+
+    return render_template(
+        "editar_lancamento.html",
+        lancamento=lancamento
     )
 
 
